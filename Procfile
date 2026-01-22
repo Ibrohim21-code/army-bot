@@ -1,1 +1,1 @@
-worker: python army-bot.py
+worker: python render-bot.py
