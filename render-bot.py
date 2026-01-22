@@ -1,29 +1,19 @@
-import os
 import requests
 import random
 import time
 import json
-import logging
+import os
 
-# Logger sozlash
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+# TOKENNI BU YERGA QO'YING
+MAIN_BOT_TOKEN = os.getenv("BOT_TOKEN", "8571970125:AAFrjrJeRabWiUiSSTdflpCvMPOM11Jae6E")
 
-# Tokenni environment dan olish
-MAIN_BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-if not MAIN_BOT_TOKEN:
-    logger.error("BOT_TOKEN muhit o'zgaruvchisi topilmadi!")
-    exit(1)
-
-# Qolgan sozlamalar
+# SOZLAMALAR
 BOT_ARMY = []
 REACTIONS_PER_BOT = 3
 DELAY_BETWEEN_REACTIONS = (1, 2)
 BOT_FILE = "bot_army.json"
 
+# REAKSIYALAR
 ALL_REACTIONS = ["👍", "❤️", "🔥", "👏", "😁", "🎉", "💯", "⭐", "🤩", "😍", "👌", "💪"]
 
 class TelegramBot:
@@ -32,17 +22,15 @@ class TelegramBot:
         self.base_url = f"https://api.telegram.org/bot{self.token}"
         self.session = requests.Session()
         self.session.timeout = 10
-        logger.info(f"Bot yaratildi: {self.token[:15]}...")
     
     def get_me(self):
         """Bot ma'lumotlarini olish"""
         try:
             response = self.session.get(f"{self.base_url}/getMe")
             data = response.json()
-            logger.debug(f"getMe response: {data}")
             return data
         except Exception as e:
-            logger.error(f"Bot ma'lumotlari olinmadi: {e}")
+            print(f"❌ Bot ma'lumotlari olinmadi: {e}")
             return {"ok": False}
     
     def send_message(self, chat_id, text, parse_mode="HTML"):
@@ -55,11 +43,9 @@ class TelegramBot:
                 "disable_web_page_preview": True
             }
             response = self.session.post(f"{self.base_url}/sendMessage", json=payload)
-            data = response.json()
-            logger.debug(f"sendMessage response: {data}")
-            return data
+            return response.json()
         except Exception as e:
-            logger.error(f"Xabar yuborilmadi: {e}")
+            print(f"❌ Xabar yuborilmadi: {e}")
             return {"ok": False}
     
     def send_reaction(self, chat_id, message_id, emoji):
@@ -72,10 +58,9 @@ class TelegramBot:
             }
             response = self.session.post(f"{self.base_url}/setMessageReaction", json=payload)
             data = response.json()
-            logger.debug(f"Reaction response: {data}")
             return data
         except Exception as e:
-            logger.error(f"Reaksiya qo'yilmadi: {e}")
+            print(f"❌ Reaksiya qo'yilmadi: {e}")
             return {"ok": False}
     
     def delete_webhook(self):
@@ -83,8 +68,7 @@ class TelegramBot:
         try:
             response = self.session.get(f"{self.base_url}/deleteWebhook")
             return response.json()
-        except Exception as e:
-            logger.error(f"Webhook o'chirilmadi: {e}")
+        except:
             return {"ok": False}
     
     def get_updates(self, offset=None, timeout=30):
@@ -95,11 +79,9 @@ class TelegramBot:
                 params["offset"] = offset
             
             response = self.session.get(f"{self.base_url}/getUpdates", params=params)
-            data = response.json()
-            logger.debug(f"Updates response count: {len(data.get('result', []))}")
-            return data
+            return response.json()
         except Exception as e:
-            logger.error(f"Updates olinmadi: {e}")
+            print(f"❌ Updates olinmadi: {e}")
             return {"ok": False, "result": []}
 
 class BotArmySystem:
@@ -108,7 +90,6 @@ class BotArmySystem:
         self.offset = 0
         self.bot_army = []
         self.load_bot_army()
-        logger.info("BotArmySystem ishga tushirildi")
         
     def load_bot_army(self):
         """Bot army ni fayldan yuklash"""
@@ -118,11 +99,11 @@ class BotArmySystem:
                 with open(BOT_FILE, 'r') as f:
                     self.bot_army = json.load(f)
                     BOT_ARMY = self.bot_army.copy()
-                logger.info(f"{len(self.bot_army)} ta army bot yuklandi")
+                print(f"✅ {len(self.bot_army)} ta army bot yuklandi")
             else:
-                logger.info("Army botlar fayli yo'q, yangi fayl yaratiladi")
+                print("ℹ️ Army botlar fayli yo'q")
         except Exception as e:
-            logger.error(f"Army botlar yuklanmadi: {e}")
+            print(f"❌ Army botlar yuklanmadi: {e}")
             self.bot_army = []
     
     def save_bot_army(self):
@@ -132,21 +113,24 @@ class BotArmySystem:
             with open(BOT_FILE, 'w') as f:
                 json.dump(self.bot_army, f, indent=2)
             BOT_ARMY = self.bot_army.copy()
-            logger.info(f"{len(self.bot_army)} ta army bot saqlandi")
+            print(f"✅ {len(self.bot_army)} ta army bot saqlandi")
         except Exception as e:
-            logger.error(f"Army botlar saqlanmadi: {e}")
+            print(f"❌ Army botlar saqlanmadi: {e}")
     
     def add_bot_to_army(self, token):
         """Army ga yangi bot qo'shish"""
+        # Token formati tekshirish
         if not token or len(token) < 30:
             return False, "❌ Token noto'g'ri formatda"
         
+        # Token allaqachon mavjudligini tekshirish
         if token in self.bot_army:
             return False, "❌ Bu bot allaqachon qo'shilgan"
         
         if token == MAIN_BOT_TOKEN:
             return False, "❌ Bu asosiy botning tokeni"
         
+        # Botni tekshirish
         test_bot = TelegramBot(token)
         bot_info = test_bot.get_me()
         
@@ -155,7 +139,6 @@ class BotArmySystem:
             self.save_bot_army()
             
             username = bot_info["result"].get("username", "Noma'lum")
-            logger.info(f"Yangi bot qo'shildi: @{username}")
             return True, f"✅ @{username} qo'shildi! Army: {len(self.bot_army)} ta"
         else:
             return False, "❌ Token noto'g'ri yoki bot ishlamayapti"
@@ -167,12 +150,10 @@ class BotArmySystem:
             if 0 <= index < len(self.bot_army):
                 removed_token = self.bot_army.pop(index)
                 self.save_bot_army()
-                logger.info(f"Bot o'chirildi: index {index}")
                 return True, f"✅ Bot o'chirildi! Qolgan: {len(self.bot_army)} ta"
             else:
                 return False, "❌ Noto'g'ri raqam"
-        except Exception as e:
-            logger.error(f"Bot o'chirishda xatolik: {e}")
+        except:
             return False, "❌ Xatolik yuz berdi"
     
     def show_bot_list(self):
@@ -192,18 +173,21 @@ class BotArmySystem:
             else:
                 message += f"{i}. ❌ Noto'g'ri token\n"
         
-        message += f"\n🗑 <b>O'chirish:</b> /del1, /del2, ..."
+        message += f"\n🗑 <b>O'chirish:</b> /delete1, /delete2, ..."
         return message
     
     def process_post_reactions(self, chat_id, message_id):
         """Postga reaksiya qo'yish"""
-        logger.info(f"Postga reaksiya qo'yish: chat_id={chat_id}, message_id={message_id}")
+        print(f"\n🎯 POSTGA REAKSIYALAR QO'YILMOQDA...")
+        print(f"💬 Chat: {chat_id}")
+        print(f"📝 Message: {message_id}")
+        print("-" * 50)
         
         total_reactions = 0
         successful_reactions = 0
         
-        # Asosiy bot reaksiyalari
-        logger.info("Asosiy bot reaksiyalarini qo'yish")
+        # 1. Asosiy bot reaksiyalari
+        print(f"\n👑 ASOSIY BOT:")
         reactions = random.sample(ALL_REACTIONS, min(REACTIONS_PER_BOT, len(ALL_REACTIONS)))
         
         for i, emoji in enumerate(reactions, 1):
@@ -212,30 +196,32 @@ class BotArmySystem:
             
             if result.get("ok"):
                 successful_reactions += 1
-                logger.info(f"Asosiy bot: ✅ {emoji}")
+                print(f"   {i}. ✅ {emoji}")
             else:
-                logger.warning(f"Asosiy bot: ❌ {emoji}")
+                print(f"   {i}. ❌ {emoji}")
                 if "description" in result:
-                    logger.error(f"Xato: {result['description']}")
+                    print(f"      Xato: {result['description']}")
             
             if i < len(reactions):
                 time.sleep(random.uniform(*DELAY_BETWEEN_REACTIONS))
         
-        # Army botlar reaksiyalari
+        # 2. Army botlar reaksiyalari
         if self.bot_army:
-            logger.info(f"Army botlar reaksiyalarini qo'yish ({len(self.bot_army)} ta)")
+            print(f"\n🤖 ARMY BOTLAR ({len(self.bot_army)} ta):")
             
             for bot_index, token in enumerate(self.bot_army, 1):
                 army_bot = TelegramBot(token)
                 
+                # Botni tekshirish
                 bot_info = army_bot.get_me()
                 if not bot_info.get("ok"):
-                    logger.warning(f"Bot {bot_index} ishlamayapti")
+                    print(f"   {bot_index}. ❌ Bot ishlamayapti")
                     continue
                 
                 bot_username = bot_info["result"].get("username", f"Bot_{bot_index}")
-                logger.info(f"Army bot {bot_index}: @{bot_username}")
+                print(f"   {bot_index}. 🤖 @{bot_username}")
                 
+                # Army bot reaksiyalari
                 army_reactions = random.sample(ALL_REACTIONS, min(REACTIONS_PER_BOT, len(ALL_REACTIONS)))
                 
                 for i, emoji in enumerate(army_reactions, 1):
@@ -244,28 +230,36 @@ class BotArmySystem:
                     
                     if result.get("ok"):
                         successful_reactions += 1
-                        logger.info(f"  @{bot_username}: ✅ {emoji}")
+                        print(f"      {i}. ✅ {emoji}")
                     else:
-                        logger.warning(f"  @{bot_username}: ❌ {emoji}")
+                        print(f"      {i}. ❌ {emoji}")
                     
                     if i < len(army_reactions):
                         time.sleep(random.uniform(*DELAY_BETWEEN_REACTIONS))
                 
+                # Botlar orasida kechikish
                 if bot_index < len(self.bot_army):
                     time.sleep(random.uniform(0.5, 1))
         
-        logger.info(f"Reaksiya natijasi: {successful_reactions}/{total_reactions}")
+        print("-" * 50)
+        print(f"📊 NATIJA: {successful_reactions}/{total_reactions} ta reaksiya")
+        print("=" * 50)
+        
         return successful_reactions, total_reactions
     
     def handle_command(self, chat_id, command, user_name):
         """Foydalanuvchi komandalarini boshqarish"""
-        logger.info(f"Command handled: {command} from {user_name}")
         
         if command == "/start":
             welcome_msg = f"""👋 Salom, {user_name}!
 
 🤖 <b>BOT ARMY - Reaksiya Sistemasi</b>
-⭐ Har bir postga ko'plab reaksiyalar!
+⭐ Har qanday postga reaksiya qo'yadi: 
+  • 📝 Matn
+  • 🎵 Musiqa
+  • 🎬 Video
+  • 📷 Rasm
+  • 📎 Fayllar
 
 <b>📋 ASOSIY KOMANDALAR:</b>
 • /addbot - Yangi bot qo'shish
@@ -281,8 +275,8 @@ class BotArmySystem:
 
 <b>🚀 BOSHLASH UCHUN:</b>
 1. Botlarni kanalga ADMIN qiling
-2. Kanalga post joylang
-3. Botlar avtomatik reaksiya qo'yadi!"""
+2. Kanalga HAR QANDAY post joylang
+3. Botlar AVTOMATIK reaksiya qo'yadi!"""
             
             self.main_bot.send_message(chat_id, welcome_msg)
         
@@ -331,8 +325,7 @@ Qaysi botni o'chirmoqchisiz?
                 index = command.replace("/del", "")
                 success, message = self.remove_bot_from_army(index)
                 self.main_bot.send_message(chat_id, message)
-            except Exception as e:
-                logger.error(f"Bot o'chirishda xatolik: {e}")
+            except:
                 self.main_bot.send_message(chat_id, "❌ Xato! Raqam kiriting")
         
         elif command == "/stats":
@@ -348,7 +341,15 @@ Qaysi botni o'chirmoqchisiz?
 • Mavjud reaksiyalar: {len(ALL_REACTIONS)} tur
 
 📅 Bot yaratilgan: Bugun
-🔄 Status: ✅ Faol"""
+🔄 Status: ✅ Faol
+
+🎵 SUPPORTED MEDIA:
+• Text messages
+• Music/audio
+• Videos
+• Photos
+• Documents
+• Stickers"""
             
             self.main_bot.send_message(chat_id, stats_msg)
         
@@ -358,13 +359,23 @@ Qaysi botni o'chirmoqchisiz?
 <b>BOT QANDAY ISHLAYDI?</b>
 1. Bir nechta bot yaratasiz
 2. Barcha botlarni kanalga ADMIN qilasiz
-3. Post joylaganingizda, barcha botlar reaksiya qo'yadi
+3. Har qanday post (matn, musiqa, video) joylaganingizda, barcha botlar reaksiya qo'yadi
 
 <b>ASOSIY KOMANDALAR:</b>
 • /start - Botni ishga tushirish
 • /addbot - Yangi bot qo'shish
 • /mybots - Botlar ro'yxati
 • /stats - Statistika
+
+<b>SUPPORTED POST TYPES:</b>
+✅ Text messages
+✅ Music and audio files
+✅ Videos
+✅ Photos
+✅ Documents
+✅ Stickers
+✅ Voice messages
+✅ Polls
 
 <b>MUHIM ESHTUTISH:</b>
 • Har bir botni kanalga ADMIN qiling!
@@ -373,18 +384,33 @@ Qaysi botni o'chirmoqchisiz?
             self.main_bot.send_message(chat_id, help_msg)
         
         elif command == "/test":
-            test_msg = "✅ Bot ishlayapti! Kanalga post qo'ying va reaksiyalarni tomosha qiling!"
+            test_msg = "✅ Bot ishlayapti! Kanalga HAR QANDAY post (matn, musiqa, video) qo'ying va reaksiyalarni tomosha qiling!"
             self.main_bot.send_message(chat_id, test_msg)
         
-        elif command == "/status":
-            status_msg = f"""🟢 Bot ishlayapti
+        elif command == "/media":
+            media_msg = """🎵 <b>SUPPORTED MEDIA TYPES:</b>
 
-📍 Host: Render.com
-🕒 Server vaqti: {time.ctime()}
-🤖 Army botlar: {len(self.bot_army)} ta
-🖥️ Protsessor: Python {os.sys.version}
-💾 Foydalanilgan fayl: {BOT_FILE}"""
-            self.main_bot.send_message(chat_id, status_msg)
+Bot quyidagi post turlariga reaksiya qo'yadi:
+
+<b>✅ SUPPORTED:</b>
+• 📝 Text messages
+• 🎵 Music & audio files
+• 🎬 Videos
+• 📷 Photos
+• 📎 Documents
+• 🎭 Stickers
+• 🎤 Voice messages
+• 📊 Polls
+• 🎮 Games
+
+<b>❌ NOT SUPPORTED:</b>
+• Contact sharing
+• Location sharing
+• Video notes
+
+<b>💡 TIP:</b>
+Bot har qanday media postiga avtomatik reaksiya qo'yadi!"""
+            self.main_bot.send_message(chat_id, media_msg)
         
         else:
             unknown_msg = f"""🤔 Noma'lum komanda: {command}
@@ -394,31 +420,54 @@ Qaysi botni o'chirmoqchisiz?
 /addbot - Yangi bot qo'shish
 /mybots - Botlar ro'yxati
 /stats - Statistika
-/status - Bot holati
+/media - Qo'llab-quvvatlanadigan media turlari
 /help - Yordam"""
             
             self.main_bot.send_message(chat_id, unknown_msg)
     
     def start_polling(self):
         """Botni ishga tushirish"""
-        logger.info("BotArmySystem polling ishga tushirilmoqda...")
+        print("=" * 60)
+        print("🤖 TELEGRAM BOT ARMY v2.0 - All Media Support")
+        print("🎵 Now supports: Text, Music, Video, Photos, Documents")
+        print("=" * 60)
         
+        # Botni tekshirish
         bot_info = self.main_bot.get_me()
         if not bot_info.get("ok"):
-            logger.error("TOKEN XATO! Bot ishlamayapti")
+            print("❌ TOKEN XATO!")
+            print("Iltimos, to'g'ri token kiriting yoki yangi bot yarating")
             return
         
+        # Bot ma'lumotlari
         username = bot_info["result"]["username"]
         first_name = bot_info["result"]["first_name"]
+        bot_id = bot_info["result"]["id"]
         
-        logger.info(f"✅ BOT ULANDI: @{username} ({first_name})")
-        logger.info(f"🤖 Army botlar: {len(self.bot_army)} ta")
+        print(f"✅ BOT MUVOFIQQIYATLI ULANDI!")
+        print(f"🤖 Username: @{username}")
+        print(f"📛 Ism: {first_name}")
+        print(f"🆔 ID: {bot_id}")
+        print(f"🔗 Link: https://t.me/{username}")
+        print(f"👥 Army botlar: {len(self.bot_army)} ta")
+        print("\n🎵 QO'LLAB-QUVVATLANADI:")
+        print("  • 📝 Matn xabarlar")
+        print("  • 🎵 Musiqa va audio")
+        print("  • 🎬 Videolar")
+        print("  • 📷 Rasmlar")
+        print("  • 📎 Hujjatlar")
+        print("=" * 60)
         
+        # Webhook o'chirish
         self.main_bot.delete_webhook()
-        logger.info("Webhook o'chirildi")
+        print("✅ Webhook o'chirildi")
         
-        logger.info("Yangilanishlar kutilmoqda...")
+        print("\n🔄 Yangilanishlar kutilmoqda...")
+        print("📱 Botga /start yuboring")
+        print("📢 Kanalga HAR QANDAY post (matn/musiqa/video) qo'ying")
+        print("=" * 60 + "\n")
         
+        # Polling sikli
         while True:
             try:
                 updates = self.main_bot.get_updates(offset=self.offset)
@@ -427,42 +476,100 @@ Qaysi botni o'chirmoqchisiz?
                     for update in updates["result"]:
                         self.offset = update["update_id"] + 1
                         
+                        # Shaxsiy xabar
                         if "message" in update:
                             message = update["message"]
                             chat_id = message["chat"]["id"]
                             text = message.get("text", "").strip()
                             user_name = message["from"].get("first_name", "Foydalanuvchi")
                             
+                            # Faqat xabar bor bo'lsa
                             if text:
-                                logger.info(f"Xabar: {user_name}: {text}")
+                                print(f"📩 {user_name}: {text}")
                                 self.handle_command(chat_id, text, user_name)
                         
+                        # Kanal posti - HAR QANDAY POST TURI
                         elif "channel_post" in update:
                             post = update["channel_post"]
+                            chat_id = post["chat"]["id"]
+                            message_id = post["message_id"]
+                            channel_name = post["chat"].get("title", "Kanal")
                             
-                            if "text" in post or "caption" in post:
-                                chat_id = post["chat"]["id"]
-                                message_id = post["message_id"]
-                                channel_name = post["chat"].get("title", "Kanal")
-                                
-                                logger.info(f"Yangi post: {channel_name} (ID: {message_id})")
-                                self.process_post_reactions(chat_id, message_id)
+                            # POST TURINI ANIQLASH
+                            post_type = "📝 Matn"
+                            
+                            if "text" in post:
+                                post_type = "📝 Matn"
+                                text_preview = post["text"][:50] + "..." if len(post.get("text", "")) > 50 else post.get("text", "")
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"📝 Matn: {text_preview}")
+                            
+                            elif "audio" in post:
+                                post_type = "🎵 Musiqa"
+                                audio = post["audio"]
+                                title = audio.get("title", "Noma'lum")
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"🎵 Musiqa: {title}")
+                            
+                            elif "video" in post:
+                                post_type = "🎬 Video"
+                                video = post["video"]
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"🎬 Video ID: {video.get('file_id')}")
+                            
+                            elif "photo" in post:
+                                post_type = "📷 Rasm"
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"📷 Rasmlar: {len(post['photo'])} ta")
+                            
+                            elif "document" in post:
+                                post_type = "📎 Hujjat"
+                                doc = post["document"]
+                                file_name = doc.get("file_name", "Noma'lum")
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"📎 Fayl: {file_name}")
+                            
+                            elif "voice" in post:
+                                post_type = "🎤 Ovoz"
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                            
+                            elif "sticker" in post:
+                                post_type = "🎭 Stiker"
+                                sticker = post["sticker"]
+                                emoji = sticker.get("emoji", "")
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"🎭 Stiker: {emoji}")
+                            
+                            else:
+                                # Boshqa post turlari
+                                post_type = "📌 Boshqa"
+                                print(f"\n📢 YANGI POST: {channel_name} ({post_type})")
+                                print(f"📝 Post ID: {message_id}")
+                            
+                            # HAR QANDAY POSTGA REAKSIYA QO'YISH
+                            print(f"🆔 Post ID: {message_id}")
+                            print(f"📊 Turi: {post_type}")
+                            
+                            # Reaksiyalarni qo'yish
+                            self.process_post_reactions(chat_id, message_id)
                 
                 time.sleep(1)
                 
             except KeyboardInterrupt:
-                logger.info("Bot to'xtatildi")
+                print("\n\n⏹️ Bot to'xtatildi")
+                print("👋 Xayr!")
                 break
             
             except Exception as e:
-                logger.error(f"Xatolik yuz berdi: {e}")
+                print(f"\n⚠️ Xatolik yuz berdi: {e}")
+                print("🔄 5 soniya kutish...")
                 time.sleep(5)
 
 def main():
     """Dasturni ishga tushirish"""
-    print("=" * 50)
-    print("🎯 TELEGRAM BOT ARMY v2.0 - Render Edition")
-    print("⚡ Ko'p Reaksiya Sistemasi")
+    print("🎯 TELEGRAM BOT ARMY v2.0 - All Media Support")
+    print("⚡ Har qanday postga reaksiya: matn, musiqa, video, rasm")
+    print("🌐 Deployed on Railway")
     print("=" * 50)
     
     # Tizimni ishga tushirish
